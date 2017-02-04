@@ -5636,7 +5636,7 @@ mac_term_init (Lisp_Object display_name, char *xrm_option, char *resource_name)
   dpyinfo->resx = 72.0;
   dpyinfo->resy = 72.0;
 
-  add_keyboard_wait_descriptor (0);
+  add_keyboard_wait_descriptor (mac_init_select_fds ());
 
   /* In Mac GUI, asynchronous I/O (using SIGIO) can't be used for
      window events because they don't come from sockets, even though
@@ -5689,12 +5689,6 @@ x_delete_display (struct mac_display_info *dpyinfo)
 }
 
 
-static void
-mac_handle_user_signal (int sig)
-{
-  mac_wakeup_from_run_loop_run_once ();
-}
-
 static void
 record_startup_key_modifiers (void)
 {
@@ -5802,11 +5796,6 @@ mac_initialize (void)
   baud_rate = 19200;
 
   block_input ();
-
-  if (init_wakeup_fds () < 0)
-    emacs_abort ();
-
-  handle_user_signal_hook = mac_handle_user_signal;
 
   init_coercion_handler ();
 

@@ -108,6 +108,11 @@ typedef id instancetype;
 - (NSArrayOf (NSString *) *)componentsSeparatedByCamelCasingWithCharactersInSet:(NSCharacterSet *)separator;
 @end
 
+@interface NSMutableArray (Emacs)
+- (void)enqueue:(id)obj;
+- (id)dequeue;
+@end
+
 @interface NSFont (Emacs)
 + (NSFont *)fontWithFace:(struct face *)face;
 @end
