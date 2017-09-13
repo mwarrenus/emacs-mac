@@ -14701,6 +14701,8 @@ main (int argc, char **argv)
 	}
     }
 
+  mac_init_thread_synchronization ();
+
   err = pthread_attr_init (&attr);
   if (!err)
     err = pthread_attr_setdetachstate (&attr, PTHREAD_CREATE_DETACHED);
@@ -14740,7 +14742,6 @@ main (int argc, char **argv)
     }
   pthread_attr_destroy (&attr);
 
-  mac_init_thread_synchronization ();
   mac_gui_loop ();
 
   emacs_abort ();
