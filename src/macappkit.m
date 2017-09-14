@@ -12160,6 +12160,11 @@ static NSDate *documentRasterizerCacheOldestTimestamp;
   return self;
 }
 
++ (BOOL)shouldInitializeInMainThread
+{
+  return NO;
+}
+
 + (NSArrayOf (NSString *) *)supportedTypes
 {
   return [NSArray arrayWithObject:((__bridge NSString *) kUTTypePDF)];
@@ -12389,6 +12394,11 @@ static NSDate *documentRasterizerCacheOldestTimestamp;
   return self;
 }
 
++ (BOOL)shouldInitializeInMainThread
+{
+  return YES;
+}
+
 #if !USE_ARC
 - (void)dealloc
 {
@@ -12600,14 +12610,24 @@ document_rasterizer_create (id url_or_data,
 
   for (Class class in document_rasterizer_get_classes ())
     {
-      id <EmacsDocumentRasterizer> document;
+      id <EmacsDocumentRasterizer> __block document;
+      void (^block) (void);
 
       if (isURL)
-	document = [((id <EmacsDocumentRasterizer>) [class alloc])
-		     initWithURL:((NSURL *) url_or_data) options:options];
+	block = ^{
+	  document = [((id <EmacsDocumentRasterizer>) [class alloc])
+		       initWithURL:((NSURL *) url_or_data) options:options];
+	};
       else
-	document = [((id <EmacsDocumentRasterizer>) [class alloc])
-		     initWithData:((NSData *) url_or_data) options:options];
+	block = ^{
+	  document = [((id <EmacsDocumentRasterizer>) [class alloc])
+		       initWithData:((NSData *) url_or_data) options:options];
+	};
+
+      if ([(Class <EmacsDocumentRasterizer>)class shouldInitializeInMainThread])
+	mac_within_gui (block);
+      else
+	block ();
 
       if (document)
 	return document;

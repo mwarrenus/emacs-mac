@@ -726,6 +726,7 @@ typedef NSString * NSPasteboardName;
 		    options:(NSDictionaryOf (NSString *, id) *)options;
 - (instancetype)initWithData:(NSData *)data
 		     options:(NSDictionaryOf (NSString *, id) *)options;
++ (BOOL)shouldInitializeInMainThread;
 + (NSArrayOf (NSString *) *)supportedTypes;
 - (NSUInteger)pageCount;
 - (NSSize)integralSizeOfPageAtIndex:(NSUInteger)index;
