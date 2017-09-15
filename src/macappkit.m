@@ -2737,7 +2737,8 @@ static CGRect unset_global_focus_view_frame (void);
 
 	  if (INTEGERP (tool_bar_lines) && XINT (tool_bar_lines) > 0)
 	    mac_within_lisp (^{
-	    x_set_tool_bar_lines (f, make_number (0), tool_bar_lines);
+	    x_set_frame_parameters (f, list1 (Fcons (Qtool_bar_lines,
+						     make_number (0))));
 	      });
 	  FRAME_NATIVE_TOOL_BAR_P (f) =
 	    (setFrameType != SET_FRAME_TOGGLE_FULL_SCREEN_LATER
@@ -2745,7 +2746,8 @@ static CGRect unset_global_focus_view_frame (void);
 	     : !(newState & WM_STATE_DEDICATED_DESKTOP));
 	  if (INTEGERP (tool_bar_lines) && XINT (tool_bar_lines) > 0)
 	    mac_within_lisp (^{
-	    x_set_tool_bar_lines (f, tool_bar_lines, make_number (0));
+	    x_set_frame_parameters (f, list1 (Fcons (Qtool_bar_lines,
+						     tool_bar_lines)));
 	      });
 	}
 
@@ -9364,7 +9366,6 @@ static NSString *localizedMenuTitleForEdit, *localizedMenuTitleForHelp;
     if ([window isKindOfClass:[EmacsFullscreenWindow class]]
 	&& ([window isVisible] || [window isMiniaturized]))
       {
-	extern NSImage *_NSGetThemeImage (NSUInteger) WEAK_IMPORT_ATTRIBUTE;
 	NSMenuItem *item =
 	  [[NSMenuItem alloc] initWithTitle:[window title]
 				     action:@selector(makeKeyAndOrderFront:)
