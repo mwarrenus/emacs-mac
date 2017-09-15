@@ -157,6 +157,7 @@ static void mac_within_gui_and_here (void (^ CF_NOESCAPE) (void),
 static void mac_within_gui (void (^ CF_NOESCAPE) (void));
 static void mac_within_gui_allowing_inner_lisp (void (^ CF_NOESCAPE) (void));
 static void mac_within_lisp (void (^ CF_NOESCAPE) (void));
+static void mac_within_lisp_deferred_unless_popup (void (^) (void));
 
 @implementation NSData (Emacs)
 
@@ -2957,6 +2958,8 @@ static CGRect unset_global_focus_view_frame (void);
 - (void)windowDidBecomeKey:(NSNotification *)notification
 {
   struct frame *f = emacsFrame;
+
+  mac_within_lisp_deferred_unless_popup (^{
   struct input_event inev;
 
   EVENT_INIT (inev);
@@ -2964,6 +2967,7 @@ static CGRect unset_global_focus_view_frame (void);
   mac_focus_changed (activeFlag, FRAME_DISPLAY_INFO (f), f, &inev);
   if (inev.kind != NO_EVENT)
     [emacsController storeEvent:&inev];
+    });
 
   [self noteEnterEmacsView];
 
@@ -2975,6 +2979,8 @@ static CGRect unset_global_focus_view_frame (void);
 - (void)windowDidResignKey:(NSNotification *)notification
 {
   struct frame *f = emacsFrame;
+
+  mac_within_lisp_deferred_unless_popup (^{
   struct input_event inev;
 
   EVENT_INIT (inev);
@@ -2982,6 +2988,7 @@ static CGRect unset_global_focus_view_frame (void);
   mac_focus_changed (0, FRAME_DISPLAY_INFO (f), f, &inev);
   if (inev.kind != NO_EVENT)
     [emacsController storeEvent:&inev];
+    });
 
   [self noteLeaveEmacsView];
 
@@ -8848,7 +8855,8 @@ mac_file_dialog (Lisp_Object prompt, Lisp_Object dir,
       nondirectory = [NSString stringWithLispString:tem];
     }
 
-  mac_within_gui (^{
+  mac_menu_set_in_use (true);
+  mac_within_gui_allowing_inner_lisp (^{
   if (NILP (only_dir_p) && NILP (mustmatch))
     {
       /* This is a save dialog */
@@ -8891,6 +8899,7 @@ mac_file_dialog (Lisp_Object prompt, Lisp_Object dir,
 	url = MRC_RETAIN ([[openPanel URLs] objectAtIndex:0]);
     }
     });
+  mac_menu_set_in_use (false);
 
   if ([url isFileURL])
     file = [[url path] lispString];
@@ -9029,7 +9038,8 @@ mac_font_dialog (struct frame *f)
 {
   Lisp_Object __block result = Qnil;
 
-  mac_within_gui (^{
+  mac_menu_set_in_use (true);
+  mac_within_gui_allowing_inner_lisp (^{
   NSFontManager *fontManager = [NSFontManager sharedFontManager];
   NSFontPanel *fontPanel = [fontManager fontPanel:YES];
   NSFont *savedSelectedFont, *selectedFont;
@@ -9071,6 +9081,7 @@ mac_font_dialog (struct frame *f)
 
   [fontPanel close];
     });
+  mac_menu_set_in_use (false);
 
   return result;
 }
@@ -10052,7 +10063,7 @@ pop_down_dialog (Lisp_Object arg)
   block_input ();
 
   panel = CF_BRIDGING_RELEASE (XSAVE_POINTER (arg, 1));
-  mac_within_gui (^{
+  mac_within_gui_allowing_inner_lisp (^{
   [panel close];
   [NSApp endModalSession:session];
     });
@@ -10125,7 +10136,7 @@ create_and_show_dialog (struct frame *f, widget_value *first_wv)
   mac_menu_set_in_use (true);
   {
     NSModalSession __block session;
-    mac_within_gui (^{
+    mac_within_gui_allowing_inner_lisp (^{
     session = [NSApp beginModalSessionForWindow:panel];
       });
     Lisp_Object session_obj =
@@ -10140,7 +10151,7 @@ create_and_show_dialog (struct frame *f, widget_value *first_wv)
       {
 	struct timespec next_time = timer_check ();
 
-	mac_within_gui (^{
+	mac_within_gui_allowing_inner_lisp (^{
 	    NSDate *expiration;
 
 	    if (timespec_valid_p (next_time))
@@ -11329,6 +11340,7 @@ mac_send_action (Lisp_Object symbol, bool dry_run_p)
       NSAppleEventDescriptor * __block result;
       NSDictionaryOf (NSString *, id) * __block errorInfo1;
 
+      mac_within_gui_allowing_inner_lisp (^{
       mac_within_app (^{
 	  result = [super executeAndReturnError:&errorInfo1];
 #if !USE_ARC
@@ -11336,6 +11348,7 @@ mac_send_action (Lisp_Object symbol, bool dry_run_p)
 	    [errorInfo1 retain];
 	  [result retain];
 #endif
+	});
 	});
 
       if (result == nil)
@@ -11355,6 +11368,7 @@ mac_send_action (Lisp_Object symbol, bool dry_run_p)
       NSAttributedString * __block displayValue1;
       NSDictionaryOf (NSString *, id) * __block errorInfo1;
 
+      mac_within_gui_allowing_inner_lisp (^{
       mac_within_app (^{
 	  result = [super executeAndReturnDisplayValue:&displayValue1
 						 error:&errorInfo1];
@@ -11365,6 +11379,7 @@ mac_send_action (Lisp_Object symbol, bool dry_run_p)
 	    [errorInfo1 retain];
 	  [result retain];
 #endif
+	});
 	});
 
       if (result)
@@ -11385,6 +11400,7 @@ mac_send_action (Lisp_Object symbol, bool dry_run_p)
       NSAppleEventDescriptor * __block result;
       NSDictionaryOf (NSString *, id) * __block errorInfo1;
 
+      mac_within_gui_allowing_inner_lisp (^{
       mac_within_app (^{
 	  result = [super executeAppleEvent:event error:&errorInfo1];
 #if !USE_ARC
@@ -11392,6 +11408,7 @@ mac_send_action (Lisp_Object symbol, bool dry_run_p)
 	    [errorInfo1 retain];
 	  [result retain];
 #endif
+	});
 	});
 
       if (result == nil)
@@ -11817,6 +11834,7 @@ mac_osa_script (Lisp_Object code_or_file, Lisp_Object compiled_p_or_language,
 	}
       if (NILP (*error_data))
 	{
+	  mac_menu_set_in_use (true);
 	  mac_begin_defer_key_events ();
 	  if (event)
 	    {
@@ -11832,6 +11850,7 @@ mac_osa_script (Lisp_Object code_or_file, Lisp_Object compiled_p_or_language,
 	  if (desc == nil)
 	    *error_data = mac_osa_error_info_to_lisp (errorInfo);
 	  mac_end_defer_key_events ();
+	  mac_menu_set_in_use (false);
 	}
       MRC_RELEASE (script);
     }
@@ -14290,7 +14309,11 @@ static dispatch_semaphore_t mac_gui_semaphore, mac_lisp_semaphore;
 
 /* Queues of blocks to be executed in GUI or Lisp thread
    respectively.  */
-NSMutableArray *mac_gui_queue, *mac_lisp_queue;
+static NSMutableArray *mac_gui_queue, *mac_lisp_queue;
+
+/* Queues of blocks to be executed in Lisp thread at the end of the
+   call to mac_within_gui_and_here.  */
+static NSMutableArray *mac_deferred_lisp_queue;
 
 /* Dispatch source to break the run loop in the GUI thread for the
    select emulation.  */
@@ -14314,6 +14337,7 @@ mac_init_thread_synchronization (void)
 
   mac_gui_queue = [[NSMutableArray alloc] initWithCapacity:2];
   mac_lisp_queue = [[NSMutableArray alloc] initWithCapacity:1];
+  mac_deferred_lisp_queue = [[NSMutableArray alloc] initWithCapacity:0];
 
   mac_select_next_command = MAC_SELECT_COMMAND_TERMINATE;
   mac_select_dispatch_source =
@@ -14413,6 +14437,12 @@ mac_within_gui_and_here (void (^ CF_NOESCAPE block_gui) (void),
   if (block_here)
     block_here ();
   dispatch_semaphore_wait (mac_lisp_semaphore, DISPATCH_TIME_FOREVER);
+  while (mac_deferred_lisp_queue.count)
+    {
+      void (^block) (void) = [mac_deferred_lisp_queue dequeue];
+
+      block ();
+    }
 }
 
 /* Ask execution of BLOCK to the GUI thread synchronously with
@@ -14456,6 +14486,33 @@ mac_within_lisp (void (^ CF_NOESCAPE block) (void))
   [mac_lisp_queue enqueue:block];
   dispatch_semaphore_signal (mac_lisp_semaphore);
   mac_gui_loop ();
+}
+
+/* Ask deferred execution of BLOCK to the Lisp thread.  This should be
+   used in the context of the block argument of `mac_within_gui' etc.
+   BLOCK is called at the end of `mac_within_gui' etc. call.  One can
+   use `mac_within_gui' etc. in the context of BLOCK.  */
+
+static void
+mac_within_lisp_deferred (void (^block) (void))
+{
+  eassert (pthread_main_np ());
+  eassert (block);
+
+  [mac_deferred_lisp_queue enqueue:(MRC_AUTORELEASE ([block copy]))];
+}
+
+/* Ask execution of BLOCK to the Lisp thread.  Process BLOCK
+   synchronously if some popup menu or dialog is in use, and otherwise
+   deferred.  */
+
+static void
+mac_within_lisp_deferred_unless_popup (void (^block) (void))
+{
+  if (popup_activated ())
+    mac_within_lisp (block);
+  else
+    mac_within_lisp_deferred (block);
 }
 
 
