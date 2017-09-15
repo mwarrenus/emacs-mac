@@ -818,7 +818,7 @@ cleanup_suspended_apple_events (struct suspended_ae_info **head, bool all_p)
     {
       if (!all_p && p->expiration_uptime > current_uptime)
 	break;
-      mac_within_main (^{
+      mac_within_gui (^{
       AESetTheCurrentEvent (&p->apple_event);
       AEResumeTheCurrentEvent (&p->apple_event, &p->reply,
 			       (AEEventHandlerUPP) kAENoDispatch, 0);
@@ -893,7 +893,7 @@ DEFUN ("mac-process-deferred-apple-events", Fmac_process_deferred_apple_events, 
       for (tail = prev; tail; tail = next)
 	{
 	  next = tail->next;
-	  mac_within_main (^{
+	  mac_within_gui (^{
 	  AEResumeTheCurrentEvent (&tail->apple_event, &tail->reply,
 				   (AEEventHandlerUPP) kAEUseStandardDispatch,
 				   0);
@@ -1012,7 +1012,7 @@ nil, which means the event is already resumed or expired.  */)
 	  AEPutParamPtr (&ae->reply, keyErrorNumber, typeSInt32,
 			 &errn, sizeof (SInt32));
 	}
-      mac_within_main (^{
+      mac_within_gui (^{
       AESetTheCurrentEvent (&ae->apple_event);
       AEResumeTheCurrentEvent (&ae->apple_event, &ae->reply,
 			       (EQ (error_code, Qt)
@@ -1071,7 +1071,7 @@ Otherwise, return the error code as an integer.  */)
   err = create_apple_event_from_lisp (apple_event, &event);
   if (err == noErr)
     {
-      mac_within_main (^{
+      mac_within_gui (^{
       err = AESendMessage (&event, NULL, mode, kAEDefaultTimeout);
 	});
       if (err == noErr)

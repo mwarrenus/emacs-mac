@@ -696,7 +696,7 @@ extern void mac_update_accessibility_status (struct frame *);
 extern void mac_start_animation (Lisp_Object, Lisp_Object);
 extern CFTypeRef mac_sound_create (Lisp_Object, Lisp_Object);
 extern void mac_sound_play (CFTypeRef, Lisp_Object, Lisp_Object);
-extern void mac_within_main (void (^ CF_NOESCAPE block) (void));
+extern void mac_within_gui (void (^ CF_NOESCAPE block) (void));
 
 #if DRAWING_USE_GCD
 #define MAC_BEGIN_DRAW_TO_FRAME(f, gc, context)			\

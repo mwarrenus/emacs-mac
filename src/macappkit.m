@@ -154,7 +154,6 @@ enum {
 
 static void mac_within_gui_and_here (void (^ CF_NOESCAPE) (void),
 				     void (^ CF_NOESCAPE) (void));
-static void mac_within_gui (void (^ CF_NOESCAPE) (void));
 static void mac_within_gui_allowing_inner_lisp (void (^ CF_NOESCAPE) (void));
 static void mac_within_lisp (void (^ CF_NOESCAPE) (void));
 static void mac_within_lisp_deferred_unless_popup (void (^) (void));
@@ -4114,9 +4113,7 @@ mac_set_frame_window_alpha (struct frame *f, CGFloat alpha)
 {
   NSWindow *window = FRAME_MAC_WINDOW_OBJECT (f);
 
-  /* Might be called from frame_unhighlight/frame_unhighlight in the
-     gui thread.  */
-  mac_within_main (^{[window setAlphaValue:alpha];});
+  mac_within_gui (^{[window setAlphaValue:alpha];});
 
   return noErr;
 }
@@ -6316,7 +6313,7 @@ mac_begin_cg_clip (struct frame *f, GC gc)
     {
       EmacsFrameController *frameController = FRAME_CONTROLLER (f);
 
-      mac_within_main (^{
+      mac_within_gui (^{
       [frameController lockFocusOnEmacsView];
       FRAME_CG_CONTEXT (f) = [[NSGraphicsContext currentContext] graphicsPort];
       });
@@ -6343,7 +6340,7 @@ mac_end_cg_clip (struct frame *f)
     {
       EmacsFrameController *frameController = FRAME_CONTROLLER (f);
 
-      mac_within_main (^{
+      mac_within_gui (^{
       [frameController unlockFocusOnEmacsView];
       FRAME_CG_CONTEXT (f) = NULL;
       });
@@ -14400,22 +14397,10 @@ mac_gui_loop_once (void)
    NSObjects from BLOCK via __block or global variables, make sure
    they are retained for non-ARC environments.  */
 
-static void
+void
 mac_within_gui (void (^ CF_NOESCAPE block) (void))
 {
   mac_within_gui_and_here (block, NULL);
-}
-
-/* Like mac_within_gui, but can be called from the mail/initial
-   thread.  Mainly for use outside macappkit.m.  Use it sparingly.  */
-
-void
-mac_within_main (void (^ CF_NOESCAPE block) (void))
-{
-  if (pthread_main_np ())
-    block ();
-  else
-    mac_within_gui_and_here (block, NULL);
 }
 
 /* Ask execution of BLOCK_GUI to the GUI thread.  The calling thread
