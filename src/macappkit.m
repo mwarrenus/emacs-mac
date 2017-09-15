@@ -9505,9 +9505,9 @@ mac_activate_menubar (struct frame *f)
     }
   else
     mac_fake_menu_bar_click (kEventPriorityHigh);
-  popup_activated_flag = 1;
+  mac_menu_set_in_use (true);
   mac_track_menu_with_block (^{[emacsController trackMenuBar];});
-  popup_activated_flag = 0;
+  mac_menu_set_in_use (false);
 
   return [emacsController getAndClearMenuItemSelection];
 }
@@ -9723,13 +9723,13 @@ create_and_show_popup_menu (struct frame *f, widget_value *first_wv, int x, int 
   [menu setAutoenablesItems:NO];
   [menu fillWithWidgetValue:first_wv->contents];
 
-  popup_activated_flag = 1;
+  mac_menu_set_in_use (true);
   mac_track_menu_with_block (^{
   [focusFrameController noteLeaveEmacsView];
   [frameController popUpMenu:menu atLocationInEmacsView:(NSMakePoint (x, y))];
   [focusFrameController noteEnterEmacsView];
     });
-  popup_activated_flag = 0;
+  mac_menu_set_in_use (false);
 
   /* Must reset this manually because the button release event is not
      passed to Emacs event loop. */
@@ -10056,7 +10056,7 @@ pop_down_dialog (Lisp_Object arg)
   [panel close];
   [NSApp endModalSession:session];
     });
-  popup_activated_flag = 0;
+  mac_menu_set_in_use (false);
 
   unblock_input ();
 }
@@ -10122,7 +10122,7 @@ create_and_show_dialog (struct frame *f, widget_value *first_wv)
   [panel makeKeyAndOrderFront:nil];
     });
 
-  popup_activated_flag = 1;
+  mac_menu_set_in_use (true);
   {
     NSModalSession __block session;
     mac_within_gui (^{

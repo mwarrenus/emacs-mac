@@ -490,7 +490,7 @@ extern pascal OSErr mac_handle_apple_event (const AppleEvent *, AppleEvent *,
 extern void cleanup_all_suspended_apple_events (void);
 
 /* Defined in macmenu.c */
-extern int popup_activated_flag;
+extern void mac_menu_set_in_use (bool);
 extern Lisp_Object mac_popup_dialog (struct frame *, Lisp_Object, Lisp_Object);
 extern bool name_is_separator (const char *);
 
