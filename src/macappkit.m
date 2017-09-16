@@ -8014,6 +8014,7 @@ update_frame_tool_bar (struct frame *f)
 
   block_input ();
 
+  mac_within_gui (^{
   [frameController updateToolbarDisplayMode];
   /* If we change the visibility of a toolbar while its window is
      being moved asynchronously, the window moves to the original
@@ -8021,7 +8022,8 @@ update_frame_tool_bar (struct frame *f)
      that sometimes we don't receive windowDidMove: messages for
      preceding windowWillMove:.  */
   if (![toolbar isVisible])
-    mac_within_gui (^{[toolbar setVisible:YES];});
+    [toolbar setVisible:YES];
+    });
 
   [window suspendConstrainingToScreen:NO];
   win_gravity = f->output_data.mac->toolbar_win_gravity;
