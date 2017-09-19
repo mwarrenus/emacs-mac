@@ -4527,14 +4527,19 @@ CGFloat
 mac_get_frame_window_title_bar_height (struct frame *f)
 {
   NSWindow *window = FRAME_MAC_WINDOW_OBJECT (f);
+  CGFloat __block result;
+
+  mac_within_gui (^{
   NSRect windowFrame = [window frame];
   NSRect rect = [NSWindow contentRectForFrameRect:windowFrame
 					styleMask:[window styleMask]];
 
   rect.origin = NSZeroPoint;
   rect = [[window contentView] convertRect:rect toView:nil];
+  result = NSHeight (windowFrame) - NSHeight (rect);
+    });
 
-  return NSHeight (windowFrame) - NSHeight (rect);
+  return result;
 }
 
 CGSize
@@ -4561,6 +4566,9 @@ CGRect
 mac_get_frame_window_tool_bar_rect (struct frame *f)
 {
   NSWindow *window = FRAME_MAC_WINDOW_OBJECT (f);
+  CGRect __block result;
+
+  mac_within_gui (^{
   NSView *contentView = [window contentView];
   NSRect rect;
   CGFloat toolBarHeight;
@@ -4594,8 +4602,10 @@ mac_get_frame_window_tool_bar_rect (struct frame *f)
       else
 	rect = NSZeroRect;
     }
+  result = NSRectToCGRect ([contentView convertRect:rect toView:nil]);
+    });
 
-  return NSRectToCGRect ([contentView convertRect:rect toView:nil]);
+  return result;
 }
 
 CGRect
