@@ -14438,11 +14438,20 @@ mac_within_gui_and_here (void (^ CF_NOESCAPE block_gui) (void),
   if (block_here)
     block_here ();
   dispatch_semaphore_wait (mac_lisp_semaphore, DISPATCH_TIME_FOREVER);
-  while (mac_deferred_lisp_queue.count)
+  if (mac_deferred_lisp_queue.count)
     {
-      void (^block) (void) = [mac_deferred_lisp_queue dequeue];
+      NSMutableArray *queue = mac_deferred_lisp_queue;
 
-      block ();
+      mac_deferred_lisp_queue = [[NSMutableArray alloc] initWithCapacity:0];
+      do
+	{
+	  void (^block) (void) = [queue dequeue];
+
+	  block ();
+	}
+      while (queue.count);
+      MRC_RELEASE (queue);
+      eassert (mac_deferred_lisp_queue.count == 0);
     }
 }
 
