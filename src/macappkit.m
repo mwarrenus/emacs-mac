@@ -6139,8 +6139,8 @@ event_phase_to_symbol (NSEventPhase phase)
 
   [super viewDidEndLiveResize];
   mac_handle_size_change (f, NSWidth (frameRect), NSHeight (frameRect));
-  /* Exit from select_and_poll_event so as to react to the frame size
-     change, especially in a full screen tile on OS X 10.11.  */
+  /* Exit from mac_select so as to react to the frame size change,
+     especially in a full screen tile on OS X 10.11.  */
   [NSApp postDummyEvent];
 }
 
@@ -6153,8 +6153,8 @@ event_phase_to_symbol (NSEventPhase phase)
       NSRect frameRect = [self frame];
 
       mac_handle_size_change (f, NSWidth (frameRect), NSHeight (frameRect));
-      /* Exit from select_and_poll_event so as to react to the frame
-	 size change.  */
+      /* Exit from mac_select so as to react to the frame size
+	 change.  */
       [NSApp postDummyEvent];
     }
 }
