@@ -14696,7 +14696,8 @@ mac_select (int nfds, fd_set *rfds, fd_set *wfds, fd_set *efds,
 		{
 		  [currentRunLoop runMode:NSDefaultRunLoopMode
 			       beforeDate:limit];
-		  if (!written_p && mac_peek_next_event () != NULL)
+		  if (!written_p && (mac_peek_next_event () != NULL
+				     || detect_input_pending ()))
 		    {
 		      write_one_byte_to_fd (mac_select_fds[0]);
 		      written_p = true;
