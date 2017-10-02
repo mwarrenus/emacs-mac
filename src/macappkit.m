@@ -4827,6 +4827,7 @@ mac_create_frame_window (struct frame *f)
     }
   else if (!FRAME_TOOLTIP_P (f))
     {
+      mac_within_gui (^{
       NSWindow *window = [frameController emacsWindow];
       NSWindow *mainWindow = [NSApp mainWindow];
 
@@ -4841,6 +4842,7 @@ mac_create_frame_window (struct frame *f)
 	  topLeft = [window cascadeTopLeftFromPoint:topLeft];
 	  [window cascadeTopLeftFromPoint:topLeft];
 	}
+	});
     }
 }
 
