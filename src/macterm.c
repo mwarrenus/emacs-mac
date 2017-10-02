@@ -3996,7 +3996,14 @@ x_set_offset (struct frame *f, register int xoff, register int yoff, int change_
   /* When the frame is maximized/fullscreen, the actual window will
      not be moved and mac_handle_origin_change will not be called via
      window system events.  */
-  mac_handle_origin_change (f);
+  {
+    NativeRectangle bounds;
+
+    mac_get_frame_window_structure_bounds (f, &bounds);
+    f->left_pos = bounds.x;
+    f->top_pos = bounds.y;
+  }
+
   unblock_input ();
 }
 

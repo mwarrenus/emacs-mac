@@ -4531,8 +4531,9 @@ mac_set_frame_window_structure_bounds (struct frame *f, NativeRectangle bounds)
     });
 }
 
-void
-mac_get_frame_window_structure_bounds (struct frame *f, NativeRectangle *bounds)
+static void
+mac_get_frame_window_structure_bounds_1 (struct frame *f,
+					 NativeRectangle *bounds)
 {
   NSWindow *window = FRAME_MAC_WINDOW_OBJECT (f);
   NSRect baseScreenFrame = mac_get_base_screen_frame ();
@@ -4542,6 +4543,12 @@ mac_get_frame_window_structure_bounds (struct frame *f, NativeRectangle *bounds)
 		     NSMinX (windowFrame) - NSMinX (baseScreenFrame),
 		     - NSMaxY (windowFrame) + NSMaxY (baseScreenFrame),
 		     NSWidth (windowFrame), NSHeight (windowFrame));
+}
+
+void
+mac_get_frame_window_structure_bounds (struct frame *f, NativeRectangle *bounds)
+{
+  mac_within_gui (^{mac_get_frame_window_structure_bounds_1 (f, bounds);});
 }
 
 CGFloat
@@ -4724,6 +4731,22 @@ mac_set_frame_window_background (struct frame *f, unsigned long color)
       [frameController updateScrollerAppearance];
     }
     });
+}
+
+/* Store the screen positions of frame F into XPTR and YPTR.
+   These are the positions of the containing window manager window,
+   not Emacs's own window.  */
+
+void
+x_real_positions (struct frame *f, int *xptr, int *yptr)
+{
+  eassert (pthread_main_np ());
+  NativeRectangle bounds;
+
+  mac_get_frame_window_structure_bounds_1 (f, &bounds);
+
+  *xptr = bounds.x;
+  *yptr = bounds.y;
 }
 
 /* Flush display of frame F.  */
