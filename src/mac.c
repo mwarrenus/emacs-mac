@@ -2198,8 +2198,9 @@ DEFUN ("system-move-file-to-trash", Fsystem_move_file_to_trash,
       if (err == noErr)
 	{
 	  mac_within_gui (^{
-	  err = AESendMessage (&event, &reply, kAEWaitReply | kAENeverInteract,
-			       kAEDefaultTimeout);
+	      err = AESendMessage (&event, &reply,
+				   kAEWaitReply | kAENeverInteract,
+				   kAEDefaultTimeout);
 	    });
 	  AEDisposeDesc (&event);
 	}

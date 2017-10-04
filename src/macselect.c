@@ -819,9 +819,9 @@ cleanup_suspended_apple_events (struct suspended_ae_info **head, bool all_p)
       if (!all_p && p->expiration_uptime > current_uptime)
 	break;
       mac_within_gui (^{
-      AESetTheCurrentEvent (&p->apple_event);
-      AEResumeTheCurrentEvent (&p->apple_event, &p->reply,
-			       (AEEventHandlerUPP) kAENoDispatch, 0);
+	  AESetTheCurrentEvent (&p->apple_event);
+	  AEResumeTheCurrentEvent (&p->apple_event, &p->reply,
+				   (AEEventHandlerUPP) kAENoDispatch, 0);
 	});
       AEDisposeDesc (&p->reply);
       AEDisposeDesc (&p->apple_event);
@@ -894,9 +894,9 @@ DEFUN ("mac-process-deferred-apple-events", Fmac_process_deferred_apple_events, 
 	{
 	  next = tail->next;
 	  mac_within_gui (^{
-	  AEResumeTheCurrentEvent (&tail->apple_event, &tail->reply,
-				   (AEEventHandlerUPP) kAEUseStandardDispatch,
-				   0);
+	      AEResumeTheCurrentEvent (&tail->apple_event, &tail->reply,
+				       ((AEEventHandlerUPP)
+					kAEUseStandardDispatch), 0);
 	    });
 	  AEDisposeDesc (&tail->reply);
 	  AEDisposeDesc (&tail->apple_event);
@@ -1013,11 +1013,11 @@ nil, which means the event is already resumed or expired.  */)
 			 &errn, sizeof (SInt32));
 	}
       mac_within_gui (^{
-      AESetTheCurrentEvent (&ae->apple_event);
-      AEResumeTheCurrentEvent (&ae->apple_event, &ae->reply,
-			       (EQ (error_code, Qt)
-				? (AEEventHandlerUPP) kAEUseStandardDispatch
-				: (AEEventHandlerUPP) kAENoDispatch), 0);
+	  AESetTheCurrentEvent (&ae->apple_event);
+	  AEResumeTheCurrentEvent (&ae->apple_event, &ae->reply,
+				   (EQ (error_code, Qt)
+				    ? (AEEventHandlerUPP) kAEUseStandardDispatch
+				    : (AEEventHandlerUPP) kAENoDispatch), 0);
 	});
       AEDisposeDesc (&ae->reply);
       AEDisposeDesc (&ae->apple_event);
@@ -1072,7 +1072,7 @@ Otherwise, return the error code as an integer.  */)
   if (err == noErr)
     {
       mac_within_gui (^{
-      err = AESendMessage (&event, NULL, mode, kAEDefaultTimeout);
+	  err = AESendMessage (&event, NULL, mode, kAEDefaultTimeout);
 	});
       if (err == noErr)
 	result = mac_aedesc_to_lisp (&event);
