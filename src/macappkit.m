@@ -35,6 +35,7 @@ along with GNU Emacs Mac port.  If not, see <http://www.gnu.org/licenses/>.  */
 #include "keymap.h"
 #include "macfont.h"
 #include "menu.h"
+#include "atimer.h"
 #include "regex.h"
 
 #import "macappkit.h"
@@ -14711,6 +14712,7 @@ mac_select (int nfds, fd_set *rfds, fd_set *wfds, fd_set *efds,
     return r;
 
   block_input ();
+  turn_on_atimers (false);
   mac_within_gui_and_here (^{
       while (true)
 	{
@@ -14769,6 +14771,7 @@ mac_select (int nfds, fd_set *rfds, fd_set *wfds, fd_set *efds,
 	/* Pretend that `select' is interrupted by a signal.  */
 	r = -1;
     });
+  turn_on_atimers (true);
   unblock_input ();
 
   if (r < 0 || detect_input_pending ())
