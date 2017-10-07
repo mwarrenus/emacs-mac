@@ -5643,7 +5643,7 @@ mac_term_init (Lisp_Object display_name, char *xrm_option, char *resource_name)
   dpyinfo->resx = 72.0;
   dpyinfo->resy = 72.0;
 
-  add_keyboard_wait_descriptor (mac_init_select_fds ());
+  add_keyboard_wait_descriptor (mac_get_select_fd ());
 
   /* In Mac GUI, asynchronous I/O (using SIGIO) can't be used for
      window events because they don't come from sockets, even though
@@ -5752,7 +5752,7 @@ x_delete_terminal (struct terminal *terminal)
   x_destroy_all_bitmaps (dpyinfo);
 
   /* No more input on this descriptor.  */
-  delete_keyboard_wait_descriptor (0);
+  delete_keyboard_wait_descriptor (mac_get_select_fd ());
 
   x_delete_display (dpyinfo);
   unblock_input ();

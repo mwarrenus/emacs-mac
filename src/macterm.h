@@ -633,7 +633,7 @@ extern OSStatus mac_set_font_info_for_selection (struct frame *, int, int, int,
 						 Lisp_Object);
 extern void mac_get_screen_info (struct mac_display_info *);
 extern EventTimeout mac_run_loop_run_once (EventTimeout);
-extern int mac_init_select_fds (void);
+extern int mac_get_select_fd (void);
 extern int mac_select (int, fd_set *, fd_set *, fd_set *,
 		       struct timespec const *, sigset_t const *);
 extern int mac_read_socket (struct terminal *, struct input_event *);

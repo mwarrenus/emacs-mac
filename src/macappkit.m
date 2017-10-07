@@ -14635,7 +14635,7 @@ write_one_byte_to_fd (int fd)
   return rtnval;
 }
 
-int
+static void
 mac_init_select_fds (void)
 {
   int err, i;
@@ -14654,9 +14654,16 @@ mac_init_select_fds (void)
 	  || fcntl (mac_select_fds[i], F_SETFL, flags | O_NONBLOCK) == -1
 	  || (flags = fcntl (mac_select_fds[i], F_GETFD, 0)) < 0
 	  || fcntl (mac_select_fds[i], F_SETFD, flags | FD_CLOEXEC) == -1)
-	return -1;
+	{
+	  emacs_perror ("Can't make select fds non-blocking");
+	  exit (1);
+	}
     }
+}
 
+int
+mac_get_select_fd (void)
+{
   return mac_select_fds[1];
 }
 
@@ -14864,6 +14871,7 @@ main (int argc, char **argv)
     }
 
   mac_init_thread_synchronization ();
+  mac_init_select_fds ();
 
   err = pthread_attr_init (&attr);
   if (!err)
