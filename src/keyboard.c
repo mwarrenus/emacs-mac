@@ -7184,6 +7184,12 @@ handle_async_input (void)
 void
 process_pending_signals (void)
 {
+#ifdef HAVE_MACGUI
+  /* Don't process pending signals in the GUI thread, especially when
+     called from QUIT.  */
+  if (mac_gui_thread_p ())
+    return;
+#endif
   pending_signals = false;
   handle_async_input ();
   do_pending_atimers ();

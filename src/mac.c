@@ -767,7 +767,7 @@ cfstring_create_with_string_noencode (Lisp_Object s)
 CFStringRef
 cfstring_create_with_string (Lisp_Object s)
 {
-  eassert (!pthread_main_np ());
+  eassert (!mac_gui_thread_p ());
 
   if (STRING_MULTIBYTE (s))
     {
@@ -842,7 +842,7 @@ cfstring_to_lisp_nodecode (CFStringRef string)
 Lisp_Object
 cfstring_to_lisp (CFStringRef string)
 {
-  eassert (!pthread_main_np ());
+  eassert (!mac_gui_thread_p ());
 
   Lisp_Object result = cfstring_to_lisp_nodecode (string);
 

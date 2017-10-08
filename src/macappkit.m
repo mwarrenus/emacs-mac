@@ -14821,6 +14821,14 @@ mac_start_lisp_main (void *arg)
   return 0;
 }
 
+/* Return true if the current thread is the GUI thread.  */
+
+bool
+mac_gui_thread_p (void)
+{
+  return initialized && pthread_main_np ();
+}
+
 /* The entry point of the main/initial thread.  */
 
 int
