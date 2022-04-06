@@ -1,5 +1,5 @@
 /* Functions for GUI implemented with Cocoa AppKit on macOS.
-   Copyright (C) 2008-2021  YAMAMOTO Mitsuharu
+   Copyright (C) 2008-2022  YAMAMOTO Mitsuharu
 
 This file is part of GNU Emacs Mac port.
 
@@ -1048,6 +1048,16 @@ can_auto_hide_menu_bar_without_hiding_dock_p (void)
 #endif
 }
 
+static bool
+has_notch_support_p (void)
+{
+#if MAC_OS_X_VERSION_MIN_REQUIRED >= 120000
+  return true;
+#else
+  return !(floor (NSAppKitVersionNumber) <= NSAppKitVersionNumber11_0);
+#endif
+}
+
 /* Autorelease pool.  */
 
 #if __clang_major__ >= 3
@@ -1689,7 +1699,6 @@ static BOOL extendReadSocketIntervalOnce;
 
 - (void)handleOneNSEvent:(NSEvent *)event
 {
-  struct mac_display_info *dpyinfo = &one_mac_display_info;
   struct input_event inev;
 
   do_help = 0;
@@ -2189,7 +2198,8 @@ emacs_windows_need_display_p (void)
 	  if ((options & (NSApplicationPresentationFullScreen
 			  | NSApplicationPresentationAutoHideMenuBar))
 	      == (NSApplicationPresentationFullScreen
-		  | NSApplicationPresentationAutoHideMenuBar))
+		  | NSApplicationPresentationAutoHideMenuBar)
+	      && !has_notch_support_p ())
 	    {
 	      options &= ~NSApplicationPresentationAutoHideMenuBar;
 	      [NSApp setPresentationOptions:options];
@@ -6380,7 +6390,7 @@ mac_iosurface_create (size_t width, size_t height)
   if (!invalidRectValues)
     return;
 
-  NSUInteger i, j, count = invalidRectValues.count;
+  NSUInteger i, count = invalidRectValues.count;
   NSRect r, boundsRect = {NSZeroPoint, self.size};
 
   rect = NSIntersectionRect (rect, boundsRect);
@@ -6427,6 +6437,7 @@ mac_iosurface_create (size_t width, size_t height)
 				   : y1 < y2 ? NSOrderedAscending
 				   : NSOrderedSame);
     }];
+  NSUInteger j;
   for (j = i; j < count; j++)
     {
       r = [invalidRectValues objectAtIndex:j].rectValue;
@@ -14741,14 +14752,14 @@ static WebView *EmacsSVGDocumentLastWebView;
 "svgElement.setAttribute ('height', '%d');\n"
 "svgElement.setAttribute ('viewBox', '0, 0, %d, %d');\n"
 "if (documentElement.width.baseVal.unitType == SVGLength.SVG_LENGTHTYPE_PERCENTAGE)\n"
-"  documentElement.width.baseVal.newValueSpecifiedUnits (SVGLength.SVG_LENGTHTYPE_PERCENTAGE, 100);\n"
+"  documentElement.setAttribute ('width', '%d');\n"
 "if (documentElement.height.baseVal.unitType == SVGLength.SVG_LENGTHTYPE_PERCENTAGE)\n"
-"  documentElement.height.baseVal.newValueSpecifiedUnits (SVGLength.SVG_LENGTHTYPE_PERCENTAGE, 100);\n"
+"  documentElement.setAttribute ('height', '%d');\n"
 "document.replaceChild (svgElement, documentElement);\n"
 "svgElement.appendChild (gElement);\n"
 "gElement.appendChild (documentElement);\n"
 "documentElement = svgElement;\n"
-"null;", width, height, width, height];
+"null;", width, height, width, height, width, height];
 
       [webView evaluateJavaScript:script
 		completionHandler:^(id scriptResult, NSError *error) {

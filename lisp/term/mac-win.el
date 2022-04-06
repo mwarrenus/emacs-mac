@@ -1,7 +1,7 @@
 ;;; mac-win.el --- parse switches controlling interface with Mac window system -*- lexical-binding:t -*-
 
 ;; Copyright (C) 1999-2008  Free Software Foundation, Inc.
-;; Copyright (C) 2009-2021  YAMAMOTO Mitsuharu
+;; Copyright (C) 2009-2022  YAMAMOTO Mitsuharu
 
 ;; Author: Andrew Choi <akochoi@mac.com>
 ;;	YAMAMOTO Mitsuharu <mituharu@math.s.chiba-u.ac.jp>
@@ -83,6 +83,8 @@
 (require 'menu-bar)
 (require 'fontset)
 (require 'dnd)
+(require 'tool-bar)
+(eval-when-compile (require 'mwheel))
 
 (defvar mac-service-selection)
 (defvar mac-system-script-code)
@@ -846,6 +848,7 @@ language."
 		  (string source target &optional normalization-form))
 (declare-function mac-convert-property-list "mac.c"
                   (property-list &optional format hash-bound))
+(declare-function image-metadata "image.c" (spec &optional frame))
 
 (defun mac-utxt-to-string (data &optional coding-system source-encoding)
   (or coding-system (setq coding-system mac-system-coding-system))
@@ -2425,7 +2428,7 @@ A hook function can determine the current appearance by checking the
     (popup-menu (mouse-menu-bar-map) last-nonmenu-event))))
 
 (defun mac-mouse-buffer-menu (event)
-  "Like 'mouse-buffer-menu', but contextual menu is added if possible."
+  "Like `mouse-buffer-menu', but contextual menu is added if possible."
   (interactive "e")
   (let ((mac-popup-menu-add-contextual-menu t))
     (mouse-buffer-menu event)))
@@ -2440,6 +2443,20 @@ A hook function can determine the current appearance by checking the
 
 (defvar mac-ignore-momentum-wheel-events)
 (defvar mac-redisplay-dont-reset-vscroll)
+
+(defun mac-forward-wheel-event (force function event &rest arguments)
+  (let* ((horizontal (memq (event-basic-type event) '(wheel-left wheel-right)))
+         (delta-key (if horizontal :delta-x :delta-y)))
+    (if (or force
+            (null (nth 3 event))
+            (/= (plist-get (nth 3 event) delta-key) 0.0))
+        (if (null (plist-get (nth 3 event) delta-key))
+            (apply function event arguments)
+          (setf (nth 3 event)
+                (round (abs (plist-get (nth 3 event) delta-key))))
+          (when (or force (> (nth 3 event) 0))
+            (let ((mouse-wheel-progressive-speed nil))
+              (apply function event arguments)))))))
 
 (defun mac-mwheel-scroll (event)
   "Scroll up or down according to the EVENT.
@@ -2459,15 +2476,7 @@ non-nil, and the input device supports it."
   (if (not (memq (event-basic-type event) '(wheel-up wheel-down)))
       (when (memq (event-basic-type event) '(wheel-left wheel-right))
         (if mouse-wheel-tilt-scroll
-            (if (null (plist-get (nth 3 event) :delta-x))
-                (mwheel-scroll event)
-              (setf (nth 3 event)
-                    (round (abs (plist-get (nth 3 event) :delta-x))))
-              (when (> (nth 3 event) 0)
-                (let ((mouse-wheel-scroll-amount
-                       '(1 ((shift) . 5) ((control))))
-                      (mouse-wheel-progressive-speed nil))
-                  (mwheel-scroll event))))
+            (mac-forward-wheel-event t 'mwheel-scroll event)
           (cond ((and
                   ;; "Swipe between pages" enabled.
                   (plist-get (nth 3 event)
@@ -2489,16 +2498,7 @@ non-nil, and the input device supports it."
     (if (or (not mac-mouse-wheel-smooth-scroll)
 	    (delq 'click (delq 'double (delq 'triple (event-modifiers event))))
 	    (null (plist-get (nth 3 event) :scrolling-delta-y)))
-	(if (or (null (nth 3 event))
-                (/= (plist-get (nth 3 event) :delta-y) 0.0))
-            (if (null (plist-get (nth 3 event) :delta-y))
-                (mwheel-scroll event)
-              (setf (nth 3 event)
-                    (round (abs (plist-get (nth 3 event) :delta-y))))
-              (when (> (nth 3 event) 0)
-                (let ((mouse-wheel-scroll-amount '(1 ((shift) . 5) ((control))))
-                      (mouse-wheel-progressive-speed nil))
-                  (mwheel-scroll event)))))
+        (mac-forward-wheel-event nil 'mwheel-scroll event)
       ;; TODO: ignore momentum scroll events after buffer switch.
       (let* ((window-to-scroll (if mouse-wheel-follow-mouse
 				   (posn-window (event-start event))))
@@ -2844,7 +2844,23 @@ non-nil, and the input device supports it."
 		(deactivate-mark)
 		(goto-char newpoint)))))))))
 
+(defun mac-mouse-wheel-text-scale (event)
+  "Increase or decrease the height of the default face according to the EVENT."
+  (interactive (list last-input-event))
+  (mac-forward-wheel-event nil 'mouse-wheel-text-scale event))
+
+(defun mac-image-mouse-increase-size (&optional event)
+  "Increase the image size using the mouse."
+  (interactive "e")
+  (mac-forward-wheel-event nil 'image-mouse-increase-size event))
+
+(defun mac-image-mouse-decrease-size (&optional event)
+  "Decrease the image size using the mouse."
+  (interactive "e")
+  (mac-forward-wheel-event nil 'image-mouse-decrease-size event))
+
 (defvar mac-mwheel-installed-bindings nil)
+(defvar mac-mwheel-installed-text-scale-bindings nil)
 
 (define-minor-mode mac-mouse-wheel-mode
   "Toggle mouse wheel support with smooth scroll (Mac Mouse Wheel mode)."
@@ -2852,17 +2868,34 @@ non-nil, and the input device supports it."
   :global t
   :group 'mac
   ;; Remove previous bindings, if any.
-  (while mac-mwheel-installed-bindings
-    (let ((key (pop mac-mwheel-installed-bindings)))
-      (when (eq (lookup-key (current-global-map) key) 'mac-mwheel-scroll)
-        (global-unset-key key))))
+  (mouse-wheel--remove-bindings mac-mwheel-installed-bindings
+                                '(mac-mwheel-scroll))
+  (mouse-wheel--remove-bindings mac-mwheel-installed-text-scale-bindings
+                                '(mac-mouse-wheel-text-scale))
+  (setq mac-mwheel-installed-bindings nil)
+  (setq mac-mwheel-installed-text-scale-bindings nil)
+  (define-key image-map [remap image-mouse-increase-size] nil)
+  (define-key image-map [remap image-mouse-decrease-size] nil)
   ;; Setup bindings as needed.
   (when mac-mouse-wheel-mode
-    (dolist (event '(wheel-down wheel-up wheel-left wheel-right))
-      (dolist (key (mapcar (lambda (amt) `[(,@(if (consp amt) (car amt)) ,event)])
-                           mouse-wheel-scroll-amount))
-        (global-set-key key 'mac-mwheel-scroll)
-	(push key mac-mwheel-installed-bindings)))))
+    (dolist (binding mouse-wheel-scroll-amount)
+      (cond
+       ;; Bindings for changing font size.
+       ((and (consp binding) (eq (cdr binding) 'text-scale))
+        (dolist (event '(wheel-down wheel-up))
+          (let ((key `[,(list (caar binding) event)]))
+            (global-set-key key 'mac-mouse-wheel-text-scale)
+            (push key mac-mwheel-installed-text-scale-bindings))))
+       ;; Bindings for scrolling.
+       (t
+        (dolist (event '(wheel-down wheel-up wheel-left wheel-right))
+          (let ((key `[(,@(if (consp binding) (car binding)) ,event)]))
+            (global-set-key key 'mac-mwheel-scroll)
+            (push key mac-mwheel-installed-bindings))))))
+    (define-key image-map [remap image-mouse-increase-size]
+      'mac-image-mouse-increase-size)
+    (define-key image-map [remap image-mouse-decrease-size]
+      'mac-image-mouse-decrease-size)))
 
 
 ;;; Swipe events
@@ -2894,6 +2927,7 @@ non-nil, and the input device supports it."
                   (frame prop value))
 (declare-function mac-frame-tab-group-property "macfns.c"
                   (&optional frame prop))
+(declare-function x-server-version "macfns.c" (&optional terminal))
 
 (defvar mac-text-scale-magnification 1.0
   "Magnification value for text scaling.
@@ -3176,6 +3210,10 @@ This returns an error if any Emacs frames are Mac frames."
 (declare-function x-get-resource "frame.c"
 		  (attribute class &optional component subclass))
 (declare-function x-parse-geometry "frame.c" (string))
+(declare-function set-fontset-font "fontset.c"
+                  (name target font-spec &optional frame add))
+(defvar x-resource-name)
+(defvar x-command-line-resources)
 
 (defun mac-handle-args (args)
   "Process the Mac-related command line options in ARGS.

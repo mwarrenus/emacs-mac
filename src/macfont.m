@@ -919,6 +919,9 @@ macfont_descriptor_entity (CTFontDescriptorRef desc, Lisp_Object extra,
     ASET (entity, FONT_AVGWIDTH_INDEX, make_fixnum (0));
   ASET (entity, FONT_EXTRA_INDEX, Fcopy_sequence (extra));
   name = CTFontDescriptorCopyAttribute (desc, kCTFontNameAttribute);
+  /* Avoid fixnum overflow on 32-bit build.  The top 4 bits is used to
+     describe appearance of the font, and we never use them.  */
+  sym_traits &= 0x0fffffff;
   font_put_extra (entity, QCfont_entity,
 		  Fcons (make_mint_ptr ((void *) name),
 			 make_fixnum (sym_traits)));
@@ -3096,9 +3099,6 @@ macfont_draw (struct glyph_string *s, int from, int to, int x, int y,
         {
           CGContextSetTextDrawingMode (context, kCGTextFillStroke);
 
-#if HAVE_MACGUI
-	  CGContextSetLineWidth (context, synthetic_bold_factor * font_size);
-#else
           /* Stroke line width for text drawing is not correctly
              scaled on Retina display/HiDPI mode when drawn to screen
              (whereas it is correctly scaled when drawn to bitmaps),
@@ -3119,19 +3119,16 @@ macfont_draw (struct glyph_string *s, int from, int to, int x, int y,
 #if MAC_OS_X_VERSION_MIN_REQUIRED < 1070
             CGContextSetLineWidth (context, synthetic_bold_factor * font_size);
 #endif
-#endif
           CG_SET_STROKE_COLOR_WITH_FACE_FOREGROUND (context, face, f);
         }
       if (no_antialias_p)
         CGContextSetShouldAntialias (context, false);
 
-#ifdef HAVE_NS
       if (!NILP (ns_use_thin_smoothing))
         {
           CGContextSetShouldSmoothFonts(context, YES);
           CGContextSetFontSmoothingStyle(context, 16);
         }
-#endif
 
       CGContextSetTextMatrix (context, atfm);
       CGContextSetTextPosition (context, text_position.x, text_position.y);

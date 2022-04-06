@@ -991,6 +991,7 @@ call_process_posix_spawn (ptrdiff_t nargs, Lisp_Object *args, int filefd,
 #ifdef MSDOS	/* Demacs 1.1.1 91/10/16 HIRANO Satoshi */
   char *tempfile = NULL;
 #else
+  sigset_t oldset;
   pid_t pid = -1;
 #endif
   int child_errno;
@@ -1282,9 +1283,12 @@ call_process_posix_spawn (ptrdiff_t nargs, Lisp_Object *args, int filefd,
 
 #ifndef MSDOS
 
+  block_input ();
+  block_child_signal (&oldset);
+
   child_errno
     = emacs_spawn (&pid, filefd, fd_output, fd_error, new_argv, env,
-                   SSDATA (current_dir), NULL);
+                   SSDATA (current_dir), NULL, &oldset);
   eassert ((child_errno == 0) == (0 < pid));
 
   if (pid > 0)
@@ -1304,6 +1308,9 @@ call_process_posix_spawn (ptrdiff_t nargs, Lisp_Object *args, int filefd,
 	  synch_process_pid = 0;
 	}
     }
+
+  unblock_child_signal (&oldset);
+  unblock_input ();
 
   if (pid < 0)
     report_file_errno (CHILD_SETUP_ERROR_DESC, Qnil, child_errno);
@@ -2141,7 +2148,8 @@ emacs_posix_spawn_init_actions (posix_spawn_file_actions_t *actions,
 }
 
 static int
-emacs_posix_spawn_init_attributes (posix_spawnattr_t *attributes)
+emacs_posix_spawn_init_attributes (posix_spawnattr_t *attributes,
+				   const sigset_t *oldset)
 {
   int error = posix_spawnattr_init (attributes);
   if (error != 0)
@@ -2183,11 +2191,7 @@ emacs_posix_spawn_init_attributes (posix_spawnattr_t *attributes)
     goto out;
 
   /* Stop blocking SIGCHLD in the child.  */
-  sigset_t oldset;
-  error = pthread_sigmask (SIG_SETMASK, NULL, &oldset);
-  if (error != 0)
-    goto out;
-  error = posix_spawnattr_setsigmask (attributes, &oldset);
+  error = posix_spawnattr_setsigmask (attributes, oldset);
   if (error != 0)
     goto out;
 
@@ -2196,23 +2200,6 @@ emacs_posix_spawn_init_attributes (posix_spawnattr_t *attributes)
     posix_spawnattr_destroy (attributes);
 
   return error;
-}
-
-static int
-emacs_posix_spawn_init (posix_spawn_file_actions_t *actions,
-                        posix_spawnattr_t *attributes, int std_in,
-                        int std_out, int std_err, const char *cwd)
-{
-  int error = emacs_posix_spawn_init_actions (actions, std_in,
-                                              std_out, std_err, cwd);
-  if (error != 0)
-    return error;
-
-  error = emacs_posix_spawn_init_attributes (attributes);
-  if (error != 0)
-    return error;
-
-  return 0;
 }
 
 #endif
@@ -2224,11 +2211,17 @@ emacs_posix_spawn_init (posix_spawn_file_actions_t *actions,
    process image file ARGV[0].  Use ENVP for the environment block for
    the new process.  Use CWD as working directory for the new process.
    If PTY is not NULL, it must be a pseudoterminal device.  If PTY is
-   NULL, don't perform any terminal setup.  */
+   NULL, don't perform any terminal setup.  OLDSET must be a pointer
+   to a signal set initialized by `block_child_signal'.  Before
+   calling this function, call `block_input' and `block_child_signal';
+   afterwards, call `unblock_input' and `unblock_child_signal'.  Be
+   sure to call `unblock_child_signal' only after registering NEWPID
+   in a list where `handle_child_signal' can find it!  */
 
 int
 emacs_spawn (pid_t *newpid, int std_in, int std_out, int std_err,
-             char **argv, char **envp, const char *cwd, const char *pty)
+             char **argv, char **envp, const char *cwd,
+             const char *pty, const sigset_t *oldset)
 {
 #if USABLE_POSIX_SPAWN
   /* Prefer the simpler `posix_spawn' if available.  `posix_spawn'
@@ -2248,20 +2241,21 @@ emacs_spawn (pid_t *newpid, int std_in, int std_out, int std_err,
   if (use_posix_spawn)
     {
       /* Initialize optional attributes before blocking. */
-      int error
-        = emacs_posix_spawn_init (&actions, &attributes, std_in,
-                                  std_out, std_err, cwd);
+      int error = emacs_posix_spawn_init_actions (&actions, std_in,
+                                              std_out, std_err, cwd);
+      if (error != 0)
+	return error;
+
+      error = emacs_posix_spawn_init_attributes (&attributes, oldset);
       if (error != 0)
 	return error;
     }
 #endif
 
-  sigset_t oldset;
   int pid;
   int vfork_error;
 
-  block_input ();
-  block_child_signal (&oldset);
+  eassert (input_blocked_p ());
 
 #if USABLE_POSIX_SPAWN
   if (use_posix_spawn)
@@ -2299,6 +2293,7 @@ emacs_spawn (pid_t *newpid, int std_in, int std_out, int std_err,
   int volatile stdout_volatile = std_out;
   int volatile stderr_volatile = std_err;
   char **volatile envp_volatile = envp;
+  const sigset_t *volatile oldset_volatile = oldset;
 
 #ifdef DARWIN_OS
   /* Darwin doesn't let us run setsid after a vfork, so use fork when
@@ -2320,6 +2315,7 @@ emacs_spawn (pid_t *newpid, int std_in, int std_out, int std_err,
   std_out = stdout_volatile;
   std_err = stderr_volatile;
   envp = envp_volatile;
+  oldset = oldset_volatile;
 
   if (pid == 0)
 #endif /* not WINDOWSNT */
@@ -2414,7 +2410,7 @@ emacs_spawn (pid_t *newpid, int std_in, int std_out, int std_err,
 #endif
 
       /* Stop blocking SIGCHLD in the child.  */
-      unblock_child_signal (&oldset);
+      unblock_child_signal (oldset);
 
       if (pty_flag)
 	child_setup_tty (std_out);
@@ -2435,9 +2431,6 @@ emacs_spawn (pid_t *newpid, int std_in, int std_out, int std_err,
 #if USABLE_POSIX_SPAWN
  fork_done:
 #endif
-  /* Stop blocking in the parent.  */
-  unblock_child_signal (&oldset);
-  unblock_input ();
 
   if (pid < 0)
     {

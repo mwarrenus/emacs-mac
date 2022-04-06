@@ -2322,6 +2322,7 @@ create_process_posix_spawn (Lisp_Object process, char **new_argv,
   bool pty_flag = 0;
   char pty_name[PTY_NAME_SIZE];
   Lisp_Object lisp_pty_name = Qnil;
+  sigset_t oldset;
 
   inchannel = outchannel = -1;
 
@@ -2398,19 +2399,26 @@ create_process_posix_spawn (Lisp_Object process, char **new_argv,
   setup_process_coding_systems (process);
   char **env = make_environment_block (current_dir);
 
+  block_input ();
+  block_child_signal (&oldset);
+
   pty_flag = p->pty_flag;
   eassert (pty_flag == ! NILP (lisp_pty_name));
 
   vfork_errno
     = emacs_spawn (&pid, forkin, forkout, forkerr, new_argv, env,
                    SSDATA (current_dir),
-                   pty_flag ? SSDATA (lisp_pty_name) : NULL);
+                   pty_flag ? SSDATA (lisp_pty_name) : NULL, &oldset);
 
   eassert ((vfork_errno == 0) == (0 < pid));
 
   p->pid = pid;
   if (pid >= 0)
     p->alive = 1;
+
+  /* Stop blocking in the parent.  */
+  unblock_child_signal (&oldset);
+  unblock_input ();
 
   /* Environment block no longer needed.  */
   unbind_to (count, Qnil);
